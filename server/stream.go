@@ -5847,7 +5847,7 @@ var (
 // that have been acked are processed and removed.
 // This will check the ack floors of all consumers, and adjust our first sequence accordingly.
 func (mset *stream) checkInterestState() {
-	if mset == nil || !mset.isInterestRetention() {
+	if mset == nil || !mset.isInterestRetention() || !mset.IsLeader() {
 		// If we are limits based nothing to do.
 		return
 	}
@@ -6224,6 +6224,14 @@ func (mset *stream) ackMsg(o *consumer, seq uint64) bool {
 		return false
 	}
 
+	// Only propose message deletion to the stream if we're stream leader, otherwise all followers would also propose.
+	// We must be the stream leader, since we know for sure we've stored the message and don't register as pre-ack.
+	if !mset.isLeader() {
+		mset.mu.Unlock()
+		// Must still mark as removal if follower. If we become leader later, we must be able to retry the proposal.
+		return true
+	}
+
 	var shouldRemove bool
 	switch mset.cfg.Retention {
 	case WorkQueuePolicy:
@@ -6250,16 +6258,8 @@ func (mset *stream) ackMsg(o *consumer, seq uint64) bool {
 		return true
 	}
 
-	// Only propose message deletion to the stream if we're consumer leader, otherwise all followers would also propose.
-	// We must be the consumer leader, since we know for sure we've stored the message and don't register as pre-ack.
-	if o != nil && !o.IsLeader() {
-		mset.mu.Unlock()
-		// Must still mark as removal if follower. If we become leader later, we must be able to retry the proposal.
-		return true
-	}
-
 	md := streamMsgDelete{Seq: seq, NoErase: true, Stream: mset.cfg.Name}
-	mset.node.ForwardProposal(encodeMsgDelete(&md))
+	mset.node.Propose(encodeMsgDelete(&md))
 	mset.mu.Unlock()
 	return true
 }

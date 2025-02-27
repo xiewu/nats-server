@@ -4401,8 +4401,8 @@ func TestJetStreamClusterStreamAckMsgR3SignalsRemovedMsg(t *testing.T) {
 		return mset, o, nil
 	}
 
-	sl := c.consumerLeader(globalAccountName, "TEST", "CONSUMER")
-	sf := c.randomNonConsumerLeader(globalAccountName, "TEST", "CONSUMER")
+	sl := c.streamLeader(globalAccountName, "TEST")
+	sf := c.randomNonStreamLeader(globalAccountName, "TEST")
 
 	msetL, ol, err := getStreamAndConsumer(sl)
 	require_NoError(t, err)

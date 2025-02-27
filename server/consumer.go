@@ -6010,7 +6010,7 @@ func (o *consumer) checkStateForInterestStream(ss *StreamState) error {
 	// See if we need to process this update if our parent stream is not a limits policy stream.
 	mset := o.mset
 	shouldProcessState := mset != nil && o.retention != LimitsPolicy
-	if o.closed || !shouldProcessState || o.store == nil || ss == nil {
+	if o.closed || !shouldProcessState || o.store == nil || ss == nil || !mset.IsLeader() {
 		o.mu.RUnlock()
 		return nil
 	}
