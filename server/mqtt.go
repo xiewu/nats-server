@@ -952,7 +952,20 @@ func (c *client) mqttParse(buf []byte) error {
 }
 
 func (c *client) mqttTraceMsg(msg []byte) {
-	maxTrace := c.srv.getOpts().MaxTracedMsgLen
+	opts := c.srv.getOpts()
+	maxTrace := opts.MaxTracedMsgLen
+	headersOnly := opts.TraceHeaders
+
+	// If TraceHeaders is enabled, extract only the header portion of the msg.
+	if headersOnly {
+		msg, _ = c.msgParts(msg)
+	}
+
+	// Do not emit a log line for empty zero-length payloads.
+	if len(msg) == 0 {
+		return
+	}
+
 	if maxTrace > 0 && len(msg) > maxTrace {
 		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", msg[:maxTrace])
 	} else {

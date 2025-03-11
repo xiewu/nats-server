@@ -1897,12 +1897,28 @@ func (c *client) flushSignal() {
 // Traces a message.
 // Will NOT check if tracing is enabled, does NOT need the client lock.
 func (c *client) traceMsg(msg []byte) {
-	maxTrace := c.srv.getOpts().MaxTracedMsgLen
-	if maxTrace > 0 && (len(msg)-LEN_CR_LF) > maxTrace {
+	opts := c.srv.getOpts()
+	maxTrace := opts.MaxTracedMsgLen
+	headersOnly := opts.TraceHeaders
+	suffix := LEN_CR_LF
+
+	// If TraceHeaders is enabled, extract only the header portion of the msg.
+	// The suffix is zeroed since the header is only being included.
+	if headersOnly {
+		msg, _ = c.msgParts(msg)
+		suffix = 0
+	}
+
+	// Do not emit a log line for empty zero-length payloads.
+	if len(msg) == 0 {
+		return
+	}
+
+	if maxTrace > 0 && (len(msg)-suffix) > maxTrace {
 		tm := fmt.Sprintf("%q", msg[:maxTrace])
 		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:maxTrace+1])
 	} else {
-		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:len(msg)-LEN_CR_LF])
+		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:len(msg)-suffix])
 	}
 }
 
