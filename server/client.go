@@ -1903,22 +1903,23 @@ func (c *client) traceMsg(msg []byte) {
 	suffix := LEN_CR_LF
 
 	// If TraceHeaders is enabled, extract only the header portion of the msg.
-	// The suffix is zeroed since the header is only being included.
+	// If a header is present, it ends with two trailing CRLF.
 	if headersOnly {
 		msg, _ = c.msgParts(msg)
-		suffix = 0
+		suffix += LEN_CR_LF
 	}
 
-	// Do not emit a log line for empty zero-length payloads.
-	if len(msg) == 0 {
+	// Do not emit a log line for zero-length payloads.
+	l := len(msg) - suffix
+	if l <= 0 {
 		return
 	}
 
-	if maxTrace > 0 && (len(msg)-suffix) > maxTrace {
+	if maxTrace > 0 && l > maxTrace {
 		tm := fmt.Sprintf("%q", msg[:maxTrace])
 		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:maxTrace+1])
 	} else {
-		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:len(msg)-suffix])
+		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:1])
 	}
 }
 
