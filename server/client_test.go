@@ -1754,7 +1754,7 @@ func TestTraceMsgHeadersOnly(t *testing.T) {
 			Desc:            "payload only",
 			Msg:             []byte(`test\r\n`),
 			Hdr:             0,
-			Wanted:          "",
+			Wanted:          _EMPTY_,
 			MaxTracedMsgLen: 0,
 		},
 		{
