@@ -1903,7 +1903,7 @@ func (c *client) traceMsg(msg []byte) {
 	suffix := LEN_CR_LF
 
 	// If TraceHeaders is enabled, extract only the header portion of the msg.
-	// If a header is present, it ends with two trailing CRLF.
+	// If a header is present, it ends with an additional trailing CRLF.
 	if headersOnly {
 		msg, _ = c.msgParts(msg)
 		suffix += LEN_CR_LF
@@ -1917,9 +1917,9 @@ func (c *client) traceMsg(msg []byte) {
 
 	if maxTrace > 0 && l > maxTrace {
 		tm := fmt.Sprintf("%q", msg[:maxTrace])
-		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:maxTrace+1])
+		c.Tracef("<<- MSG_PAYLOAD: [\"%s...\"]", tm[1:len(tm)-1])
 	} else {
-		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:1])
+		c.Tracef("<<- MSG_PAYLOAD: [%q]", msg[:l])
 	}
 }
 
