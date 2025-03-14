@@ -8821,58 +8821,52 @@ func TestFileStoreSubjectDeleteMarkersOnRemoveMsg(t *testing.T) {
 }
 
 func TestFileStoreStoreRawMessageThrowsPermissionErrorIfFSModeReadOnly(t *testing.T) {
-	cfg := StreamConfig{Name: "zzz", Subjects: []string{"ev.1"}, Storage: FileStorage, MaxAge: 500 * time.Millisecond}
-	fs, err := newFileStore(
-		FileStoreConfig{StoreDir: t.TempDir()},
-		cfg)
+	cfg := StreamConfig{Name: "zzz", Subjects: []string{"ev.1"}, Storage: FileStorage}
+	fs, err := newFileStore(FileStoreConfig{StoreDir: t.TempDir(), BlockSize: 1234}, cfg)
 
 	require_NoError(t, err)
 	defer fs.Stop()
 
 	msg := bytes.Repeat([]byte("Z"), 1024)
 	directory := fs.fcfg.StoreDir
-	ORIGINAL_FILE_MODE, _ := os.Stat(directory)
-	READONLY_MODE := os.FileMode(0o555)
-	changeDirectoryPermission(directory, READONLY_MODE)
+	fi, err := os.Stat(directory)
 	require_NoError(t, err)
-	totalMsgs := 10000
-	i := 0
-	for i = 0; i < totalMsgs; i++ {
+	readOnlyMode := os.FileMode(0400)
+
+	require_NoError(t, changeDirectoryPermission(directory, readOnlyMode))
+	defer changeDirectoryPermission(directory, fi.Mode())
+
+	checkFor(t, time.Second, 10*time.Millisecond, func() error {
 		_, _, err = fs.StoreMsg("ev.1", nil, msg, 0)
-		if err != nil {
-			break
+		if !errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("expected permission error, got: %v", err)
 		}
-	}
-	changeDirectoryPermission(directory, ORIGINAL_FILE_MODE.Mode())
-	require_Error(t, err, os.ErrPermission)
+		return nil
+	})
 }
 
 func TestFileStoreWriteFullStateThrowsPermissionErrorIfFSModeReadOnly(t *testing.T) {
-	cfg := StreamConfig{Name: "zzz", Subjects: []string{"ev.1"}, Storage: FileStorage, MaxAge: 500 * time.Millisecond}
-	fs, err := newFileStore(
-		FileStoreConfig{StoreDir: t.TempDir()},
-		cfg)
+	cfg := StreamConfig{Name: "zzz", Subjects: []string{"ev.1"}, Storage: FileStorage}
+	fs, err := newFileStore(FileStoreConfig{StoreDir: t.TempDir(), BlockSize: 1234}, cfg)
 
 	require_NoError(t, err)
 	defer fs.Stop()
 
-	msg := bytes.Repeat([]byte("Z"), 1024)
 	directory := fs.fcfg.StoreDir
-	ORIGINAL_FILE_MODE, _ := os.Stat(directory)
-	READONLY_MODE := os.FileMode(0o555)
+	fi, err := os.Stat(directory)
 	require_NoError(t, err)
-	totalMsgs := 10000
-	i := 0
-	for i = 0; i < totalMsgs; i++ {
-		_, _, err = fs.StoreMsg("ev.1", nil, msg, 0)
-		if err != nil {
-			break
+	readOnlyMode := os.FileMode(0400)
+
+	require_NoError(t, changeDirectoryPermission(directory, readOnlyMode))
+	defer changeDirectoryPermission(directory, fi.Mode())
+
+	checkFor(t, time.Second, 10*time.Millisecond, func() error {
+		err = fs.writeFullState()
+		if !errors.Is(err, os.ErrPermission) {
+			return fmt.Errorf("expected permission error, got: %v", err)
 		}
-	}
-	changeDirectoryPermission(directory, READONLY_MODE)
-	err = fs.writeFullState()
-	changeDirectoryPermission(directory, ORIGINAL_FILE_MODE.Mode())
-	require_Error(t, err, os.ErrPermission)
+		return nil
+	})
 }
 
 func changeDirectoryPermission(directory string, mode fs.FileMode) error {
